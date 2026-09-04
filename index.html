@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDF 編輯與轉檔工具</title>
+    <!-- 外部依賴套件 -->
+    <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.9/dist/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+    <!-- 引入 src/css 樣式表 -->
+    <link rel="stylesheet" href="src/css/style.css">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>PDF 編輯與轉檔工具</h1>
+        </header>
+
+        <!-- 狀態 A：空狀態拖曳引導區 -->
+        <div class="empty-hero-wrap" id="emptyHeroWrap">
+            <div class="empty-hero" id="emptyHero">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="12" y1="18" x2="12" y2="12"></line>
+                    <line x1="9" y1="15" x2="15" y2="15"></line>
+                </svg>
+                <div class="title">點擊或拖曳 PDF 檔案至此處</div>
+                <div class="subtitle">支援單一或多檔案批次載入</div>
+            </div>
+        </div>
+
+        <!-- 狀態 B：主工作區 -->
+        <div class="workspace" id="workspace">
+            <section class="editor-section">
+                <div class="section-header">
+                    <div class="section-title">頁面清單</div>
+                    <div class="section-desc">可自由拖曳換位，或點擊預覽圖進入「單頁大面檢視與編輯/簽章」</div>
+                </div>
+                <div class="page-grid" id="pageGrid"></div>
+
+                <!-- 懸浮導覽列 -->
+                <div class="floating-bar-sticky-wrap">
+                    <button type="button" class="fab-side-btn" id="btnScrollTop" title="移至頂部">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                            <polyline points="18 15 12 9 6 15"></polyline>
+                        </svg>
+                    </button>
+                    <div class="editor-floating-island">
+                        <div class="island-item"><span class="island-dot"></span><span id="pageCountText">0 頁</span>
+                        </div>
+                        <span style="color: var(--border-strong);">|</span>
+                        <div class="island-item" id="fileSizeText">0 MB</div>
+                    </div>
+                    <button type="button" class="fab-side-btn" id="btnScrollBottom" title="移至底部">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </button>
+                </div>
+            </section>
+
+            <!-- 右側操作面板 -->
+            <aside class="sidebar-section">
+                <div class="sidebar-title">輸出設定</div>
+                <div class="form-group">
+                    <label for="outputFilename">檔案名稱</label>
+                    <input type="text" id="outputFilename" class="form-input" placeholder="留空預設：merged_時間戳記" />
+                </div>
+                <div class="form-group">
+                    <label for="jpgQualityMode">圖片清晰度</label>
+                    <select id="jpgQualityMode" class="form-input">
+                        <option value="standard" selected>標準（100 DPI）</option>
+                        <option value="high">清晰（150 DPI）</option>
+                        <option value="ultra">超高（200 DPI）</option>
+                    </select>
+                    <div class="select-note" id="jpgQualityNote">轉檔最快，檔案最小，適合一般螢幕閱讀。</div>
+                </div>
+                <div class="action-group">
+                    <button type="button" class="btn-action primary" id="btnExportPdf">合併匯出 PDF</button>
+                    <button type="button" class="btn-action secondary" id="btnExportJpg">轉為 JPG (ZIP)</button>
+                    <button type="button" class="btn-action danger" id="btnClearAll">清空全部頁面</button>
+                </div>
+            </aside>
+        </div>
+
+        <input type="file" id="fileInput" accept="application/pdf" multiple style="display: none;" />
+    </div>
+
+    <!-- 單頁大面檢視與編輯 Modal -->
+    <div id="singleEditorOverlay" class="modal-overlay">
+        <div class="single-editor-modal">
+            <div class="single-editor-header">
+                <div class="modal-title" id="singleEditorTitle">編輯單頁內容與電子簽章</div>
+                <button type="button" class="btn-modal-close" id="btnCloseSingleEditor">×</button>
+            </div>
+            <div class="single-editor-body">
+                <div class="single-editor-tools">
+                    <div class="tools-top-row">
+                        <div class="tool-group">
+                            <label>工具模式：</label>
+                            <div class="segmented-control">
+                                <button type="button" class="tool-mode-btn active" data-mode="sign">手寫簽章</button>
+                                <button type="button" class="tool-mode-btn" data-mode="text">追加文字</button>
+                            </div>
+                        </div>
+
+                        <!-- 簽章控制項 (常駐內嵌 10 色與自訂微調並排) -->
+                        <div id="signToolOptions" class="tool-options-group">
+                            <label style="font-size:0.78rem; color:var(--text-muted);">顏色：</label>
+                            <div class="inline-palette-container">
+                                <div class="color-palette-grid" id="signPaletteGrid"></div>
+                                <div class="inline-custom-picker">
+                                    <input type="color" id="signColorInput" value="#000000" class="inline-color-input"
+                                        title="自訂微調色票" />
+                                </div>
+                            </div>
+                            <input type="hidden" id="signColorPicker" value="#000000" />
+                            <button type="button" class="btn-action secondary" id="btnClearPad"
+                                style="padding: 5px 10px; font-size: 0.78rem;">清除全部簽名</button>
+                        </div>
+
+                        <!-- 文字控制項 (常駐內嵌 10 色與自訂微調並排) -->
+                        <div id="textToolOptions" class="tool-options-group" style="display: none;">
+                            <input type="text" id="customTextInput" class="form-input" placeholder="請先在此輸入要加入的文字..."
+                                style="width: 220px;" />
+                            <label style="font-size:0.78rem; color:var(--text-muted);">顏色：</label>
+                            <div class="inline-palette-container">
+                                <div class="color-palette-grid" id="textPaletteGrid"></div>
+                                <div class="inline-custom-picker">
+                                    <input type="color" id="textColorInput" value="#1f6feb" class="inline-color-input"
+                                        title="自訂微調色票" />
+                                </div>
+                            </div>
+                            <input type="hidden" id="textColorPicker" value="#1f6feb" />
+                        </div>
+
+                        <!-- 頁面縮放控制 -->
+                        <div class="zoom-controls">
+                            <button type="button" class="btn-zoom" id="btnZoomOut" title="縮小">-</button>
+                            <span id="zoomLevelText"
+                                style="font-size: 0.8rem; min-width: 42px; text-align: center;">100%</span>
+                            <button type="button" class="btn-zoom" id="btnZoomIn" title="放大">+</button>
+                            <button type="button" class="btn-zoom-reset" id="btnZoomReset" title="重設大小">重設</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="single-canvas-container" id="singleCanvasContainer">
+                    <canvas id="singleEditCanvas"></canvas>
+                </div>
+            </div>
+            <div class="single-editor-footer">
+                <div class="footer-hint">提示：文字模式下輸入文字後直接在頁面點擊加入；選取物件可透過 8 點縮放，點擊右上角外側 "X" 移除。</div>
+                <div class="footer-actions">
+                    <button type="button" class="btn-modal cancel" id="btnCancelSingle">取消變更</button>
+                    <button type="button" class="btn-modal confirm-primary" id="btnSaveSingle">儲存此頁修改</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toastContainer"></div>
+    <div id="confirmOverlay">
+        <div class="confirm-modal">
+            <div class="modal-title" id="modalTitle">確定清空？</div>
+            <div class="modal-text" id="modalText">清空後將移除所有載入的頁面。</div>
+            <div class="modal-actions">
+                <button type="button" class="btn-modal cancel" id="btnModalCancel">取消</button>
+                <button type="button" class="btn-modal confirm-danger" id="btnModalConfirm">確認清空</button>
+            </div>
+        </div>
+    </div>
+    <div id="globalDropOverlay">放開滑鼠即可載入檔案</div>
+    <div id="loadingOverlay">
+        <div class="spinner"></div>
+        <div id="loadingText" style="font-size: 0.88rem;">處理中...</div>
+    </div>
+
+    <!-- 引入 ES Module 入口點 -->
+    <script type="module" src="src/js/app.js"></script>
+</body>
+
+</html>
