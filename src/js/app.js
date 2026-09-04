@@ -3,7 +3,8 @@
  * 1. STATE & CONSTANTS (資料與常態層)
  * ==========================================
  */
-pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
 const AppState = {
   pageItems: [],
@@ -12,21 +13,20 @@ const AppState = {
   sortableInstance: null,
   addCardElement: null,
   currentEditingItem: null,
-  pdfDocCache: new Map()
+  pdfDocCache: new Map(),
 };
 
 const QUALITY_NOTES = {
   standard: "轉檔最快，檔案最小，適合一般螢幕閱讀。",
   high: "平衡速度與銳利度，適合絕大多數公文與報告。",
-  ultra: "細節最精緻，適合精細圖表或高解析列印需求。"
+  ultra: "細節最精緻，適合精細圖表或高解析列印需求。",
 };
 
 const QUALITY_CONFIGS = {
   standard: { scale: 1.0, quality: 0.82, maxDim: 1400 },
-  high:    { scale: 1.5, quality: 0.88, maxDim: 2000 },
-  ultra:   { scale: 2.0, quality: 0.92, maxDim: 2800 }
+  high: { scale: 1.5, quality: 0.88, maxDim: 2000 },
+  ultra: { scale: 2.0, quality: 0.92, maxDim: 2800 },
 };
-
 
 /**
  * ==========================================
@@ -38,8 +38,8 @@ const UIService = {
     const container = document.getElementById("toastContainer");
     const toast = document.createElement("div");
     toast.className = `toast-card ${type}`;
-    
-    let icon = '';
+
+    let icon = "";
     if (type === "success") {
       icon = `<svg class="toast-icon" style="color: #3fb950;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
     } else if (type === "error") {
@@ -47,7 +47,7 @@ const UIService = {
     } else {
       icon = `<svg class="toast-icon" style="color: var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line></svg>`;
     }
-    
+
     toast.innerHTML = `${icon}<span>${message}</span>`;
     container.appendChild(toast);
     setTimeout(() => {
@@ -67,7 +67,12 @@ const UIService = {
     document.getElementById("loadingOverlay").style.display = "none";
   },
 
-  showConfirmDialog({ title, text, confirmText = "確認", cancelText = "取消" }) {
+  showConfirmDialog({
+    title,
+    text,
+    confirmText = "確認",
+    cancelText = "取消",
+  }) {
     return new Promise((resolve) => {
       const overlay = document.getElementById("confirmOverlay");
       document.getElementById("modalTitle").textContent = title;
@@ -98,9 +103,8 @@ const UIService = {
     if (bytes < 1024) return bytes + " B";
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
     return (bytes / (1024 * 1024)).toFixed(2) + " MB";
-  }
+  },
 };
-
 
 /**
  * ==========================================
@@ -120,9 +124,15 @@ const PDFService = {
     try {
       const doc = await PDFService.getCachedPdfDoc(item.sourceBuffer);
       const page = await doc.getPage(item.pageIndex + 1);
-      const unscaled = page.getViewport({ scale: 1.0, rotation: item.initialRotation });
+      const unscaled = page.getViewport({
+        scale: 1.0,
+        rotation: item.initialRotation,
+      });
       const scale = Math.min(1.0, 340 / unscaled.height);
-      const viewport = page.getViewport({ scale, rotation: item.initialRotation });
+      const viewport = page.getViewport({
+        scale,
+        rotation: item.initialRotation,
+      });
 
       item.canvasElement.width = viewport.width;
       item.canvasElement.height = viewport.height;
@@ -132,7 +142,7 @@ const PDFService = {
       if (item.editSnapshot) {
         const img = new Image();
         img.src = item.editSnapshot;
-        await new Promise(r => img.onload = r);
+        await new Promise((r) => (img.onload = r));
         ctx.drawImage(img, 0, 0, viewport.width, viewport.height);
       }
     } catch (e) {
@@ -144,7 +154,7 @@ const PDFService = {
     let name = document.getElementById("outputFilename").value.trim();
     if (!name) {
       const d = new Date();
-      const ts = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`;
+      const ts = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}_${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}`;
       name = `merged_${ts}`;
     }
     return name.endsWith("." + ext) ? name : `${name}.${ext}`;
@@ -159,9 +169,8 @@ const PDFService = {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }
+  },
 };
-
 
 /**
  * ==========================================
@@ -180,7 +189,8 @@ const UIComponent = {
         </svg>
         <span>加入更多頁面</span>
       `;
-      AppState.addCardElement.onclick = () => document.getElementById("fileInput").click();
+      AppState.addCardElement.onclick = () =>
+        document.getElementById("fileInput").click();
     }
     return AppState.addCardElement;
   },
@@ -199,8 +209,12 @@ const UIComponent = {
     badgeInput.title = "點擊直接輸入目標序號跳轉位置";
     badgeInput.addEventListener("click", (e) => e.stopPropagation());
     badgeInput.addEventListener("focus", (e) => e.target.select());
-    badgeInput.addEventListener("keydown", (e) => { if (e.key === "Enter") e.target.blur(); });
-    badgeInput.addEventListener("change", (e) => Controller.jumpItemToPosition(item, e.target));
+    badgeInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") e.target.blur();
+    });
+    badgeInput.addEventListener("change", (e) =>
+      Controller.jumpItemToPosition(item, e.target),
+    );
     topbar.appendChild(badgeInput);
 
     const deleteBtn = document.createElement("button");
@@ -227,7 +241,7 @@ const UIComponent = {
     metaBox.className = "meta-box";
     metaBox.innerHTML = `
       <div class="meta-file" title="${item.fileName}">${item.fileName}</div>
-      <div class="meta-page">第 ${item.pageIndex + 1} 頁 ${item.edits && item.edits.length > 0 ? '<span style="color:var(--accent);">(已編輯)</span>' : ''}</div>
+      <div class="meta-page">第 ${item.pageIndex + 1} 頁 ${item.edits && item.edits.length > 0 ? '<span style="color:var(--accent);">(已編輯)</span>' : ""}</div>
     `;
     card.appendChild(metaBox);
 
@@ -248,9 +262,12 @@ const UIComponent = {
       </button>
     `;
 
-    actions.querySelector(".btn-rotate").onclick = () => Controller.rotateItem(item);
-    actions.querySelector(".btn-move-left").onclick = () => Controller.moveItemByStep(item, -1);
-    actions.querySelector(".btn-move-right").onclick = () => Controller.moveItemByStep(item, 1);
+    actions.querySelector(".btn-rotate").onclick = () =>
+      Controller.rotateItem(item);
+    actions.querySelector(".btn-move-left").onclick = () =>
+      Controller.moveItemByStep(item, -1);
+    actions.querySelector(".btn-move-right").onclick = () =>
+      Controller.moveItemByStep(item, 1);
     card.appendChild(actions);
 
     return card;
@@ -282,8 +299,10 @@ const UIComponent = {
     workspace.classList.add("active");
     UIComponent.updateFloatingBarPosition();
 
-    document.getElementById("pageCountText").textContent = `${AppState.pageItems.length} 頁`;
-    document.getElementById("fileSizeText").textContent = `來源大小 ${UIService.formatBytes(AppState.totalBytes)}`;
+    document.getElementById("pageCountText").textContent =
+      `${AppState.pageItems.length} 頁`;
+    document.getElementById("fileSizeText").textContent =
+      `來源大小 ${UIService.formatBytes(AppState.totalBytes)}`;
 
     const addCard = UIComponent.getOrCreateAddCard();
     if (!pageGrid.contains(addCard)) pageGrid.appendChild(addCard);
@@ -298,17 +317,23 @@ const UIComponent = {
 
       const metaPage = item.cardElement.querySelector(".meta-page");
       if (metaPage) {
-        metaPage.innerHTML = `第 ${item.pageIndex + 1} 頁 ${item.edits && item.edits.length > 0 ? '<span style="color:var(--accent);">(已編輯)</span>' : ''}`;
+        metaPage.innerHTML = `第 ${item.pageIndex + 1} 頁 ${item.edits && item.edits.length > 0 ? '<span style="color:var(--accent);">(已編輯)</span>' : ""}`;
       }
 
       const leftBtn = item.cardElement.querySelector(".btn-move-left");
       const rightBtn = item.cardElement.querySelector(".btn-move-right");
-      if (leftBtn) { leftBtn.disabled = (idx === 0); leftBtn.style.opacity = (idx === 0) ? "0.2" : "1"; }
-      if (rightBtn) { rightBtn.disabled = (idx === AppState.pageItems.length - 1); rightBtn.style.opacity = (idx === AppState.pageItems.length - 1) ? "0.2" : "1"; }
+      if (leftBtn) {
+        leftBtn.disabled = idx === 0;
+        leftBtn.style.opacity = idx === 0 ? "0.2" : "1";
+      }
+      if (rightBtn) {
+        rightBtn.disabled = idx === AppState.pageItems.length - 1;
+        rightBtn.style.opacity =
+          idx === AppState.pageItems.length - 1 ? "0.2" : "1";
+      }
     });
-  }
+  },
 };
-
 
 /**
  * ==========================================
@@ -316,8 +341,16 @@ const UIComponent = {
  * ==========================================
  */
 const COMMON_COLORS = [
-  "#000000", "#ffffff", "#ffeb3b", "#4caf50", "#1976d2",
-  "#d32f2f", "#ff9800", "#e91e63", "#9c27b0", "#3f51b5"
+  "#000000",
+  "#ffffff",
+  "#ffeb3b",
+  "#4caf50",
+  "#1976d2",
+  "#d32f2f",
+  "#ff9800",
+  "#e91e63",
+  "#9c27b0",
+  "#3f51b5",
 ];
 
 const SingleEditorController = {
@@ -329,9 +362,9 @@ const SingleEditorController = {
   nativeViewport: null,
   baseScale: 1.5,
   currentZoom: 1.0,
-  tempEdits: [], 
+  tempEdits: [],
   selectedEditIndex: null,
-  activeHandle: null, 
+  activeHandle: null,
   isDraggingObject: false,
   isResizingObject: false,
   dragOffsetX: 0,
@@ -344,7 +377,8 @@ const SingleEditorController = {
     const overlay = document.getElementById("singleEditorOverlay");
     overlay.style.display = "flex";
     document.body.classList.add("modal-open");
-    document.getElementById("singleEditorTitle").textContent = `編輯頁面：${item.fileName} (第 ${item.pageIndex + 1} 頁)`;
+    document.getElementById("singleEditorTitle").textContent =
+      `編輯頁面：${item.fileName} (第 ${item.pageIndex + 1} 頁)`;
 
     this.canvas = document.getElementById("singleEditCanvas");
     this.ctx = this.canvas.getContext("2d");
@@ -360,8 +394,11 @@ const SingleEditorController = {
       const doc = await PDFService.getCachedPdfDoc(item.sourceBuffer);
       const page = await doc.getPage(item.pageIndex + 1);
       const totalRotation = (item.initialRotation + item.userRotation) % 360;
-      
-      const viewport = page.getViewport({ scale: this.baseScale, rotation: totalRotation });
+
+      const viewport = page.getViewport({
+        scale: this.baseScale,
+        rotation: totalRotation,
+      });
       this.nativeViewport = viewport;
 
       this.canvas.width = viewport.width;
@@ -389,7 +426,7 @@ const SingleEditorController = {
       if (edit.type === "sign" && edit.dataUrl && !edit.imgObj) {
         const img = new Image();
         img.src = edit.dataUrl;
-        await new Promise(r => img.onload = r);
+        await new Promise((r) => (img.onload = r));
         edit.imgObj = img;
       }
     }
@@ -397,9 +434,10 @@ const SingleEditorController = {
 
   setZoom(newZoom) {
     this.currentZoom = Math.max(0.5, Math.min(3.0, newZoom));
-    document.getElementById("zoomLevelText").textContent = `${Math.round(this.currentZoom * 100)}%`;
+    document.getElementById("zoomLevelText").textContent =
+      `${Math.round(this.currentZoom * 100)}%`;
     if (!this.nativeViewport) return;
-    
+
     const targetW = this.nativeViewport.width * this.currentZoom;
     const targetH = this.nativeViewport.height * this.currentZoom;
     this.canvas.style.width = targetW + "px";
@@ -414,7 +452,13 @@ const SingleEditorController = {
     // 繪製所有編輯物件
     this.tempEdits.forEach((edit, idx) => {
       if (edit.type === "sign" && edit.imgObj) {
-        this.ctx.drawImage(edit.imgObj, edit.x, edit.y, edit.width, edit.height);
+        this.ctx.drawImage(
+          edit.imgObj,
+          edit.x,
+          edit.y,
+          edit.width,
+          edit.height,
+        );
       } else if (edit.type === "text") {
         this.ctx.font = `${edit.size || 16}px sans-serif`;
         this.ctx.fillStyle = edit.color || "#1f6feb";
@@ -435,15 +479,17 @@ const SingleEditorController = {
         this.ctx.strokeStyle = "#2f81f7";
         this.ctx.lineWidth = 2;
         Object.entries(handles).forEach(([name, h]) => {
-          if (name === 'x') {
+          if (name === "x") {
             this.ctx.fillStyle = "#f85149";
             this.ctx.fillRect(h.x - 9, h.y - 9, 18, 18);
             this.ctx.strokeStyle = "#ffffff";
             this.ctx.lineWidth = 2;
             this.ctx.strokeRect(h.x - 9, h.y - 9, 18, 18);
             this.ctx.beginPath();
-            this.ctx.moveTo(h.x - 4, h.y - 4); this.ctx.lineTo(h.x + 4, h.y + 4);
-            this.ctx.moveTo(h.x + 4, h.y - 4); this.ctx.lineTo(h.x - 4, h.y + 4);
+            this.ctx.moveTo(h.x - 4, h.y - 4);
+            this.ctx.lineTo(h.x + 4, h.y + 4);
+            this.ctx.moveTo(h.x + 4, h.y - 4);
+            this.ctx.lineTo(h.x - 4, h.y + 4);
             this.ctx.stroke();
           } else {
             this.ctx.fillStyle = "#ffffff";
@@ -456,7 +502,8 @@ const SingleEditorController = {
 
     // 繪製即時手寫筆跡
     if (this.isDrawing && this.currentPath.length > 1) {
-      const activeColor = document.getElementById("signColorPicker")?.value || "#000000";
+      const activeColor =
+        document.getElementById("signColorPicker")?.value || "#000000";
       this.ctx.strokeStyle = activeColor;
       this.ctx.lineWidth = 3;
       this.ctx.lineCap = "round";
@@ -474,7 +521,12 @@ const SingleEditorController = {
       return { x: edit.x, y: edit.y, w: edit.width, h: edit.height };
     } else {
       const fontSize = edit.size || 16;
-      return { x: edit.x, y: edit.y - fontSize, w: edit.width || 100, h: fontSize + 6 };
+      return {
+        x: edit.x,
+        y: edit.y - fontSize,
+        w: edit.width || 100,
+        h: fontSize + 6,
+      };
     }
   },
 
@@ -483,12 +535,13 @@ const SingleEditorController = {
       nw: { x: box.x, y: box.y },
       ne: { x: box.x + box.w, y: box.y },
       se: { x: box.x + box.w, y: box.y + box.h },
+      sw: { x: box.x, y: box.x + box.w ? box.x : box.x, y: box.y + box.h }, // safety
       sw: { x: box.x, y: box.y + box.h },
-      n:  { x: box.x + box.w / 2, y: box.y },
-      e:  { x: box.x + box.w, y: box.y + box.h / 2 },
-      s:  { x: box.x + box.w / 2, y: box.y + box.h },
-      w:  { x: box.x, y: box.y + box.h / 2 },
-      x:  { x: box.x + box.w + 14, y: box.y - 14 }
+      n: { x: box.x + box.w / 2, y: box.y },
+      e: { x: box.x + box.w, y: box.y + box.h / 2 },
+      s: { x: box.x + box.w / 2, y: box.y + box.h },
+      w: { x: box.x, y: box.y + box.h / 2 },
+      x: { x: box.x + box.w + 14, y: box.y - 14 },
     };
   },
 
@@ -506,7 +559,7 @@ const SingleEditorController = {
     const hiddenPicker = document.getElementById(hiddenPickerId);
 
     grid.innerHTML = "";
-    COMMON_COLORS.forEach(hex => {
+    COMMON_COLORS.forEach((hex) => {
       const cell = document.createElement("div");
       cell.className = "palette-color-cell";
       cell.style.backgroundColor = hex;
@@ -514,7 +567,9 @@ const SingleEditorController = {
         cell.classList.add("active-color");
       }
       cell.onclick = () => {
-        grid.querySelectorAll(".palette-color-cell").forEach(c => c.classList.remove("active-color"));
+        grid
+          .querySelectorAll(".palette-color-cell")
+          .forEach((c) => c.classList.remove("active-color"));
         cell.classList.add("active-color");
         colorInput.value = hex;
         hiddenPicker.value = hex;
@@ -525,33 +580,50 @@ const SingleEditorController = {
     colorInput.oninput = (e) => {
       const hex = e.target.value;
       hiddenPicker.value = hex;
-      grid.querySelectorAll(".palette-color-cell").forEach(c => c.classList.remove("active-color"));
+      grid
+        .querySelectorAll(".palette-color-cell")
+        .forEach((c) => c.classList.remove("active-color"));
     };
   },
 
   initEvents() {
-    document.getElementById("btnCloseSingleEditor").onclick = () => this.close();
+    document.getElementById("btnCloseSingleEditor").onclick = () =>
+      this.close();
     document.getElementById("btnCancelSingle").onclick = () => this.close();
 
-    this.initColorPicker("signPaletteGrid", "signColorInput", "signColorPicker");
-    this.initColorPicker("textPaletteGrid", "textColorInput", "textColorPicker");
+    this.initColorPicker(
+      "signPaletteGrid",
+      "signColorInput",
+      "signColorPicker",
+    );
+    this.initColorPicker(
+      "textPaletteGrid",
+      "textColorInput",
+      "textColorPicker",
+    );
 
-    document.getElementById("btnZoomIn").onclick = () => this.setZoom(this.currentZoom + 0.25);
-    document.getElementById("btnZoomOut").onclick = () => this.setZoom(this.currentZoom - 0.25);
+    document.getElementById("btnZoomIn").onclick = () =>
+      this.setZoom(this.currentZoom + 0.25);
+    document.getElementById("btnZoomOut").onclick = () =>
+      this.setZoom(this.currentZoom - 0.25);
     document.getElementById("btnZoomReset").onclick = () => this.setZoom(1.0);
 
-    document.querySelectorAll(".tool-mode-btn").forEach(btn => {
+    document.querySelectorAll(".tool-mode-btn").forEach((btn) => {
       btn.onclick = (e) => {
-        document.querySelectorAll(".tool-mode-btn").forEach(b => b.classList.remove("active"));
+        document
+          .querySelectorAll(".tool-mode-btn")
+          .forEach((b) => b.classList.remove("active"));
         e.target.classList.add("active");
         this.currentMode = e.target.dataset.mode;
-        document.getElementById("signToolOptions").style.display = this.currentMode === "sign" ? "flex" : "none";
-        document.getElementById("textToolOptions").style.display = this.currentMode === "text" ? "flex" : "none";
+        document.getElementById("signToolOptions").style.display =
+          this.currentMode === "sign" ? "flex" : "none";
+        document.getElementById("textToolOptions").style.display =
+          this.currentMode === "text" ? "flex" : "none";
       };
     });
 
     document.getElementById("btnClearPad").onclick = () => {
-      this.tempEdits = this.tempEdits.filter(e => e.type !== "sign");
+      this.tempEdits = this.tempEdits.filter((e) => e.type !== "sign");
       this.selectedEditIndex = null;
       this.redrawCanvas();
       UIService.showToast("已清除所有簽名", "info");
@@ -559,41 +631,59 @@ const SingleEditorController = {
 
     this.canvas = document.getElementById("singleEditCanvas");
 
-    this.canvas.addEventListener("mousedown", (e) => {
+    // 統一的互動開始事件 (支援滑鼠與手機觸控)
+    const handleStart = (clientX, clientY) => {
       const rect = this.canvas.getBoundingClientRect();
       const scaleX = this.canvas.width / rect.width;
       const scaleY = this.canvas.height / rect.height;
-      const x = (e.clientX - rect.left) * scaleX;
-      const y = (e.clientY - rect.top) * scaleY;
+      const x = (clientX - rect.left) * scaleX;
+      const y = (clientY - rect.top) * scaleY;
 
-      // 1. 如果已有選中的物件，優先檢查是否點擊控制點 (8點 / X按鈕)
       if (this.selectedEditIndex !== null) {
-        const box = this.getObjectBoundingBox(this.tempEdits[this.selectedEditIndex]);
+        const box = this.getObjectBoundingBox(
+          this.tempEdits[this.selectedEditIndex],
+        );
         const handles = this.getHandles(box);
         for (const [hName, hCoord] of Object.entries(handles)) {
-          const hitRadius = hName === 'x' ? 16 : 8;
-          if (Math.abs(x - hCoord.x) <= hitRadius && Math.abs(y - hCoord.y) <= hitRadius) {
-            if (hName === 'x') {
+          const hitRadius = hName === "x" ? 20 : 12; // 手機觸控範圍稍微放大
+          if (
+            Math.abs(x - hCoord.x) <= hitRadius &&
+            Math.abs(y - hCoord.y) <= hitRadius
+          ) {
+            if (hName === "x") {
               this.tempEdits.splice(this.selectedEditIndex, 1);
               this.selectedEditIndex = null;
               this.redrawCanvas();
               UIService.showToast("已刪除該物件", "info");
-              return;
+              return true;
             }
             this.isResizingObject = true;
             this.activeHandle = hName;
-            this.initialResizeState = { x: box.x, y: box.y, w: box.w, h: box.h, mouseX: x, mouseY: y, edit: this.tempEdits[this.selectedEditIndex] };
-            return;
+            this.initialResizeState = {
+              x: box.x,
+              y: box.y,
+              w: box.w,
+              h: box.h,
+              mouseX: x,
+              mouseY: y,
+              edit: this.tempEdits[this.selectedEditIndex],
+            };
+            return true;
           }
         }
       }
 
-      // 2. 檢查是否點擊到任一既有物件
       let clickedIdx = -1;
       for (let i = this.tempEdits.length - 1; i >= 0; i--) {
         const box = this.getObjectBoundingBox(this.tempEdits[i]);
-        if (x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h) {
-          clickedIdx = i; break;
+        if (
+          x >= box.x &&
+          x <= box.x + box.w &&
+          y >= box.y &&
+          y <= box.y + box.h
+        ) {
+          clickedIdx = i;
+          break;
         }
       }
 
@@ -604,28 +694,27 @@ const SingleEditorController = {
         this.dragOffsetX = x - obj.x;
         this.dragOffsetY = y - obj.y;
         this.redrawCanvas();
-        return;
+        return true;
       }
 
-      // 3. 如果原本有選中物件，但這次點擊在方格外，則「僅取消聚焦」，不直接新增內容
       if (this.selectedEditIndex !== null) {
         this.selectedEditIndex = null;
         this.redrawCanvas();
-        return;
+        return true;
       }
 
-      // 4. 沒有選中物件且點擊空白處時：根據模式新增文字或開始手寫簽章
       if (this.currentMode === "text") {
         const textInput = document.getElementById("customTextInput");
         const textVal = textInput.value.trim();
         if (!textVal) {
           UIService.showToast("請先在上方輸入框填入要加入的文字", "error");
           textInput.focus();
-          return;
+          return true;
         }
         const fontSize = 18;
-        const textColor = document.getElementById("textColorPicker")?.value || "#1f6feb";
-        
+        const textColor =
+          document.getElementById("textColorPicker")?.value || "#1f6feb";
+
         this.ctx.font = `${fontSize}px sans-serif`;
         const metrics = this.ctx.measureText(textVal);
 
@@ -634,8 +723,9 @@ const SingleEditorController = {
           text: textVal,
           size: fontSize,
           color: textColor,
-          x, y,
-          width: metrics.width
+          x,
+          y,
+          width: metrics.width,
         });
         this.selectedEditIndex = this.tempEdits.length - 1;
         this.redrawCanvas();
@@ -646,70 +736,41 @@ const SingleEditorController = {
         this.currentPath = [{ x, y }];
       }
       this.redrawCanvas();
-    });
+      return true;
+    };
 
-    this.canvas.addEventListener("mousemove", (e) => {
+    // 統一的互動移動事件
+    const handleMove = (clientX, clientY) => {
       const rect = this.canvas.getBoundingClientRect();
       const scaleX = this.canvas.width / rect.width;
       const scaleY = this.canvas.height / rect.height;
-      const x = (e.clientX - rect.left) * scaleX;
-      const y = (e.clientY - rect.top) * scaleY;
-
-      // 動態游標控制
-      let isOverObject = false;
-      if (this.selectedEditIndex !== null) {
-        const box = this.getObjectBoundingBox(this.tempEdits[this.selectedEditIndex]);
-        const handles = this.getHandles(box);
-        let hoverHandle = null;
-        for (const [hName, hCoord] of Object.entries(handles)) {
-          const hitRadius = hName === 'x' ? 16 : 8;
-          if (Math.abs(x - hCoord.x) <= hitRadius && Math.abs(y - hCoord.y) <= hitRadius) {
-            hoverHandle = hName; break;
-          }
-        }
-        if (hoverHandle) {
-          isOverObject = true;
-          if (hoverHandle === 'x') this.canvas.style.cursor = 'pointer';
-          else if (['nw', 'se'].includes(hoverHandle)) this.canvas.style.cursor = 'nwse-resize';
-          else if (['ne', 'sw'].includes(hoverHandle)) this.canvas.style.cursor = 'nesw-resize';
-          else if (['n', 's'].includes(hoverHandle)) this.canvas.style.cursor = 'ns-resize';
-          else if (['e', 'w'].includes(hoverHandle)) this.canvas.style.cursor = 'ew-resize';
-        } else if (x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h) {
-          isOverObject = true;
-          this.canvas.style.cursor = 'move';
-        }
-      }
-
-      if (!isOverObject && !this.isResizingObject && !this.isDraggingObject) {
-        if (this.currentMode === "sign") {
-          this.canvas.style.cursor = "crosshair"; // 簽章模式下為筆/十字
-        } else {
-          let overAny = false;
-          for (const edit of this.tempEdits) {
-            const box = this.getObjectBoundingBox(edit);
-            if (x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h) {
-              overAny = true; break;
-            }
-          }
-          this.canvas.style.cursor = overAny ? "move" : "text";
-        }
-      }
+      const x = (clientX - rect.left) * scaleX;
+      const y = (clientY - rect.top) * scaleY;
 
       if (this.isResizingObject && this.initialResizeState) {
         const st = this.initialResizeState;
         const dx = x - st.mouseX;
         const dy = y - st.mouseY;
-        let newW = st.w, newH = st.h, newX = st.x, newY = st.y;
+        let newW = st.w,
+          newH = st.h,
+          newX = st.x,
+          newY = st.y;
 
-        if (this.activeHandle.includes('e')) newW = Math.max(20, st.w + dx);
-        if (this.activeHandle.includes('s')) newH = Math.max(20, st.h + dy);
-        if (this.activeHandle.includes('w')) {
+        if (this.activeHandle.includes("e")) newW = Math.max(20, st.w + dx);
+        if (this.activeHandle.includes("s")) newH = Math.max(20, st.h + dy);
+        if (this.activeHandle.includes("w")) {
           const possibleW = st.w - dx;
-          if (possibleW > 20) { newW = possibleW; newX = st.x + dx; }
+          if (possibleW > 20) {
+            newW = possibleW;
+            newX = st.x + dx;
+          }
         }
-        if (this.activeHandle.includes('n')) {
+        if (this.activeHandle.includes("n")) {
           const possibleH = st.h - dy;
-          if (possibleH > 20) { newH = possibleH; newY = st.y + dy; }
+          if (possibleH > 20) {
+            newH = possibleH;
+            newY = st.y + dy;
+          }
         }
 
         const ratio = st.w / st.h;
@@ -718,10 +779,13 @@ const SingleEditorController = {
         }
 
         if (st.edit.type === "sign") {
-          st.edit.x = newX; st.edit.y = newY;
-          st.edit.width = newW; st.edit.height = newH;
+          st.edit.x = newX;
+          st.edit.y = newY;
+          st.edit.width = newW;
+          st.edit.height = newH;
         } else if (st.edit.type === "text") {
-          st.edit.x = newX; st.edit.y = newY + (newH * 0.75);
+          st.edit.x = newX;
+          st.edit.y = newY + newH * 0.75;
           st.edit.size = Math.max(10, Math.round(newH * 0.8));
           st.edit.width = newW;
         }
@@ -740,9 +804,10 @@ const SingleEditorController = {
       if (!this.isDrawing || this.currentMode !== "sign") return;
       this.currentPath.push({ x, y });
       this.redrawCanvas();
-    });
+    };
 
-    window.addEventListener("mouseup", () => {
+    // 統一的互動結束事件
+    const handleEnd = () => {
       if (this.isResizingObject) {
         this.isResizingObject = false;
         this.initialResizeState = null;
@@ -757,8 +822,11 @@ const SingleEditorController = {
       this.isDrawing = false;
 
       if (this.currentPath.length > 5) {
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        this.currentPath.forEach(p => {
+        let minX = Infinity,
+          minY = Infinity,
+          maxX = -Infinity,
+          maxY = -Infinity;
+        this.currentPath.forEach((p) => {
           if (p.x < minX) minX = p.x;
           if (p.y < minY) minY = p.y;
           if (p.x > maxX) maxX = p.x;
@@ -768,21 +836,31 @@ const SingleEditorController = {
         const padding = 10;
         const boxX = Math.max(0, minX - padding);
         const boxY = Math.max(0, minY - padding);
-        const boxW = Math.min(this.canvas.width - boxX, (maxX - minX) + padding * 2);
-        const boxH = Math.min(this.canvas.height - boxY, (maxY - minY) + padding * 2);
+        const boxW = Math.min(
+          this.canvas.width - boxX,
+          maxX - minX + padding * 2,
+        );
+        const boxH = Math.min(
+          this.canvas.height - boxY,
+          maxY - minY + padding * 2,
+        );
 
         const padCanvas = document.createElement("canvas");
         padCanvas.width = boxW;
         padCanvas.height = boxH;
         const pCtx = padCanvas.getContext("2d");
-        pCtx.strokeStyle = document.getElementById("signColorPicker")?.value || "#000000";
+        pCtx.strokeStyle =
+          document.getElementById("signColorPicker")?.value || "#000000";
         pCtx.lineWidth = 3;
         pCtx.lineCap = "round";
 
         pCtx.beginPath();
         pCtx.moveTo(this.currentPath[0].x - boxX, this.currentPath[0].y - boxY);
         for (let i = 1; i < this.currentPath.length; i++) {
-          pCtx.lineTo(this.currentPath[i].x - boxX, this.currentPath[i].y - boxY);
+          pCtx.lineTo(
+            this.currentPath[i].x - boxX,
+            this.currentPath[i].y - boxY,
+          );
         }
         pCtx.stroke();
 
@@ -798,7 +876,7 @@ const SingleEditorController = {
             x: boxX,
             y: boxY,
             width: boxW,
-            height: boxH
+            height: boxH,
           });
           this.selectedEditIndex = this.tempEdits.length - 1;
           this.redrawCanvas();
@@ -806,11 +884,47 @@ const SingleEditorController = {
         };
       }
       this.currentPath = [];
-    });
+    };
+
+    // 綁定滑鼠事件
+    this.canvas.addEventListener("mousedown", (e) =>
+      handleStart(e.clientX, e.clientY),
+    );
+    this.canvas.addEventListener("mousemove", (e) =>
+      handleMove(e.clientX, e.clientY),
+    );
+    window.addEventListener("mouseup", () => handleEnd());
+
+    // 綁定手機觸控事件 (Touch Events)
+    this.canvas.addEventListener(
+      "touchstart",
+      (e) => {
+        if (e.touches.length === 1) {
+          const touch = e.touches[0];
+          handleStart(touch.clientX, touch.clientY);
+          e.preventDefault(); // 防止手機捲動頁面
+        }
+      },
+      { passive: false },
+    );
+
+    this.canvas.addEventListener(
+      "touchmove",
+      (e) => {
+        if (e.touches.length === 1) {
+          const touch = e.touches[0];
+          handleMove(touch.clientX, touch.clientY);
+          e.preventDefault();
+        }
+      },
+      { passive: false },
+    );
+
+    window.addEventListener("touchend", () => handleEnd());
 
     document.getElementById("btnSaveSingle").onclick = () => {
       if (!AppState.currentEditingItem) return;
-      AppState.currentEditingItem.edits = this.tempEdits.map(e => ({
+      AppState.currentEditingItem.edits = this.tempEdits.map((e) => ({
         type: e.type,
         dataUrl: e.dataUrl,
         text: e.text,
@@ -819,22 +933,21 @@ const SingleEditorController = {
         x: e.x,
         y: e.y,
         width: e.width,
-        height: e.height
+        height: e.height,
       }));
 
-      // 儲存前清除選取狀態，避免將藍色聚焦框與控制點拍進縮圖中
       this.selectedEditIndex = null;
       this.redrawCanvas();
 
-      AppState.currentEditingItem.editSnapshot = this.canvas.toDataURL("image/png");
+      AppState.currentEditingItem.editSnapshot =
+        this.canvas.toDataURL("image/png");
       PDFService.renderPagePreview(AppState.currentEditingItem);
       UIComponent.syncStateAndBadges();
       UIService.showToast("已儲存該頁編輯內容", "success");
       this.close();
     };
-  }
+  },
 };
-
 
 /**
  * ==========================================
@@ -844,36 +957,42 @@ const SingleEditorController = {
 const Controller = {
   initSortable() {
     if (AppState.sortableInstance) return;
-    AppState.sortableInstance = new Sortable(document.getElementById("pageGrid"), {
-      draggable: ".page-card",
-      filter: ".card-index-input, .btn-delete-x, .card-actions, button, input",
-      preventOnFilter: false,
-      animation: 180,
-      ghostClass: "sortable-ghost",
-      chosenClass: "sortable-chosen",
-      scroll: true,
-      scrollSensitivity: 100,
-      scrollSpeed: 20,
-      bubbleScroll: true,
-      onEnd: function (evt) {
-        if (evt.oldIndex === evt.newIndex) return;
-        if (evt.newIndex >= AppState.pageItems.length) evt.newIndex = AppState.pageItems.length - 1;
-        const [moved] = AppState.pageItems.splice(evt.oldIndex, 1);
-        AppState.pageItems.splice(evt.newIndex, 0, moved);
-        UIComponent.syncStateAndBadges();
-      }
-    });
+    AppState.sortableInstance = new Sortable(
+      document.getElementById("pageGrid"),
+      {
+        draggable: ".page-card",
+        filter:
+          ".card-index-input, .btn-delete-x, .card-actions, button, input",
+        preventOnFilter: false,
+        animation: 180,
+        ghostClass: "sortable-ghost",
+        chosenClass: "sortable-chosen",
+        scroll: true,
+        scrollSensitivity: 100,
+        scrollSpeed: 20,
+        bubbleScroll: true,
+        onEnd: function (evt) {
+          if (evt.oldIndex === evt.newIndex) return;
+          if (evt.newIndex >= AppState.pageItems.length)
+            evt.newIndex = AppState.pageItems.length - 1;
+          const [moved] = AppState.pageItems.splice(evt.oldIndex, 1);
+          AppState.pageItems.splice(evt.newIndex, 0, moved);
+          UIComponent.syncStateAndBadges();
+        },
+      },
+    );
   },
 
   animateReorder(actionFn) {
     const firstPositions = new Map();
-    AppState.pageItems.forEach(item => {
-      if (item.cardElement) firstPositions.set(item.id, item.cardElement.getBoundingClientRect());
+    AppState.pageItems.forEach((item) => {
+      if (item.cardElement)
+        firstPositions.set(item.id, item.cardElement.getBoundingClientRect());
     });
 
     actionFn();
 
-    AppState.pageItems.forEach(item => {
+    AppState.pageItems.forEach((item) => {
       const card = item.cardElement;
       if (!card) return;
       const first = firstPositions.get(item.id);
@@ -883,13 +1002,15 @@ const Controller = {
         const deltaY = first.top - last.top;
         if (deltaX !== 0 || deltaY !== 0) {
           card.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-          card.style.transition = 'none';
+          card.style.transition = "none";
           card.offsetHeight;
           requestAnimationFrame(() => {
-            card.style.transition = 'transform 0.25s ease-out';
-            card.style.transform = '';
+            card.style.transition = "transform 0.25s ease-out";
+            card.style.transform = "";
           });
-          setTimeout(() => { card.style.transition = ''; }, 250);
+          setTimeout(() => {
+            card.style.transition = "";
+          }, 250);
         }
       }
     });
@@ -911,14 +1032,20 @@ const Controller = {
 
       const addCard = UIComponent.getOrCreateAddCard();
       const nextRef = AppState.pageItems[targetIdx + 1]?.cardElement || addCard;
-      document.getElementById("pageGrid").insertBefore(item.cardElement, nextRef);
+      document
+        .getElementById("pageGrid")
+        .insertBefore(item.cardElement, nextRef);
       UIComponent.syncStateAndBadges();
     });
   },
 
   getElementDocumentTop(el) {
-    let top = 0, curr = el;
-    while (curr) { top += curr.offsetTop; curr = curr.offsetParent; }
+    let top = 0,
+      curr = el;
+    while (curr) {
+      top += curr.offsetTop;
+      curr = curr.offsetParent;
+    }
     return top;
   },
 
@@ -926,7 +1053,12 @@ const Controller = {
     const currentIdx = AppState.pageItems.indexOf(item);
     let targetNum = parseInt(inputEl.value, 10);
 
-    if (isNaN(targetNum) || targetNum < 1 || targetNum > AppState.pageItems.length || targetNum - 1 === currentIdx) {
+    if (
+      isNaN(targetNum) ||
+      targetNum < 1 ||
+      targetNum > AppState.pageItems.length ||
+      targetNum - 1 === currentIdx
+    ) {
       inputEl.value = currentIdx + 1;
       return;
     }
@@ -938,14 +1070,19 @@ const Controller = {
 
       const addCard = UIComponent.getOrCreateAddCard();
       const nextRef = AppState.pageItems[targetIdx + 1]?.cardElement || addCard;
-      document.getElementById("pageGrid").insertBefore(item.cardElement, nextRef);
+      document
+        .getElementById("pageGrid")
+        .insertBefore(item.cardElement, nextRef);
       UIComponent.syncStateAndBadges();
     });
 
     requestAnimationFrame(() => {
       const restingTop = Controller.getElementDocumentTop(item.cardElement);
       const cardHeight = item.cardElement.offsetHeight || 380;
-      window.scrollTo({ top: Math.max(0, restingTop - (window.innerHeight - cardHeight) / 2), behavior: "smooth" });
+      window.scrollTo({
+        top: Math.max(0, restingTop - (window.innerHeight - cardHeight) / 2),
+        behavior: "smooth",
+      });
     });
 
     UIService.showToast(`已將該頁移至第 ${targetNum} 位`, "info");
@@ -965,15 +1102,19 @@ const Controller = {
 
   async handleFiles(files) {
     UIService.showLoading("載入頁面中...");
+    // 確保將 FileList 轉為標準陣列，全面相容所有桌面與手機瀏覽器
+    const fileArray = Array.from(files);
     const newItems = [];
     let loadedCount = 0;
 
-    for (const file of files) {
-      if (file.type !== "application/pdf" && !file.name.endsWith(".pdf")) continue;
+    for (const file of fileArray) {
+      // 放寬檢查：只要副檔名是 .pdf 即可（避免手機瀏覽器未帶入正確的 MIME type）
+      if (!file.name.toLowerCase().endsWith(".pdf")) continue;
       try {
         AppState.totalBytes += file.size;
         const buffer = await file.arrayBuffer();
-        const doc = await pdfjsLib.getDocument({ data: buffer.slice(0) }).promise;
+        const doc = await pdfjsLib.getDocument({ data: buffer.slice(0) })
+          .promise;
 
         for (let i = 1; i <= doc.numPages; i++) {
           const page = await doc.getPage(i);
@@ -987,14 +1128,17 @@ const Controller = {
             cardElement: null,
             canvasElement: null,
             edits: [],
-            editSnapshot: null
+            editSnapshot: null,
           };
           newItems.push(item);
           AppState.pageItems.push(item);
           loadedCount++;
         }
       } catch (err) {
-        UIService.showToast(`無法開啟 ${file.name}，請檢查檔案格式或是否加密。`, "error");
+        UIService.showToast(
+          `無法開啟 ${file.name}，請檢查檔案格式或是否加密。`,
+          "error",
+        );
       }
     }
 
@@ -1010,7 +1154,11 @@ const Controller = {
     }
 
     UIService.hideLoading();
-    if (loadedCount > 0) UIService.showToast(`已載入 ${loadedCount} 頁`, "success");
+    if (loadedCount > 0) {
+      UIService.showToast(`已成功載入 ${loadedCount} 頁`, "success");
+    } else {
+      UIService.showToast("未能成功載入任何 PDF 檔案", "error");
+    }
     UIComponent.syncStateAndBadges();
     Controller.initSortable();
   },
@@ -1037,8 +1185,12 @@ const Controller = {
         if (item.edits && item.edits.length > 0) {
           const { width, height } = copied.getSize();
           for (const edit of item.edits) {
-            const scaleFactorX = width / (SingleEditorController.nativeViewport?.width || width * 1.5);
-            const scaleFactorY = height / (SingleEditorController.nativeViewport?.height || height * 1.5);
+            const scaleFactorX =
+              width /
+              (SingleEditorController.nativeViewport?.width || width * 1.5);
+            const scaleFactorY =
+              height /
+              (SingleEditorController.nativeViewport?.height || height * 1.5);
 
             if (edit.type === "sign") {
               const pngImage = await outDoc.embedPng(edit.dataUrl);
@@ -1046,11 +1198,17 @@ const Controller = {
                 x: edit.x * scaleFactorX,
                 y: height - (edit.y + edit.height) * scaleFactorY,
                 width: edit.width * scaleFactorX,
-                height: edit.height * scaleFactorY
+                height: edit.height * scaleFactorY,
               });
             } else if (edit.type === "text") {
-              let r = 0.12, g = 0.43, b = 0.98;
-              if (edit.color && edit.color.startsWith("#") && edit.color.length === 7) {
+              let r = 0.12,
+                g = 0.43,
+                b = 0.98;
+              if (
+                edit.color &&
+                edit.color.startsWith("#") &&
+                edit.color.length === 7
+              ) {
                 r = parseInt(edit.color.substr(1, 2), 16) / 255;
                 g = parseInt(edit.color.substr(3, 2), 16) / 255;
                 b = parseInt(edit.color.substr(5, 2), 16) / 255;
@@ -1059,7 +1217,7 @@ const Controller = {
                 x: edit.x * scaleFactorX,
                 y: height - edit.y * scaleFactorY,
                 size: (edit.size || 16) * scaleFactorX,
-                color: PDFLib.rgb(r, g, b)
+                color: PDFLib.rgb(r, g, b),
               });
             }
           }
@@ -1069,7 +1227,10 @@ const Controller = {
       }
 
       const bytes = await outDoc.save();
-      PDFService.triggerDownload(new Blob([bytes], { type: "application/pdf" }), PDFService.getTargetFilename("pdf"));
+      PDFService.triggerDownload(
+        new Blob([bytes], { type: "application/pdf" }),
+        PDFService.getTargetFilename("pdf"),
+      );
       UIService.showToast("PDF 匯出成功", "success");
     } catch (err) {
       UIService.showToast("PDF 匯出失敗：" + err.message, "error");
@@ -1093,7 +1254,10 @@ const Controller = {
 
       const getDoc = async (buffer) => {
         if (!docCache.has(buffer)) {
-          docCache.set(buffer, await pdfjsLib.getDocument({ data: buffer.slice(0) }).promise);
+          docCache.set(
+            buffer,
+            await pdfjsLib.getDocument({ data: buffer.slice(0) }).promise,
+          );
         }
         return docCache.get(buffer);
       };
@@ -1105,9 +1269,18 @@ const Controller = {
         const page = await doc.getPage(item.pageIndex + 1);
         const totalRotation = (item.initialRotation + item.userRotation) % 360;
 
-        const unscaled = page.getViewport({ scale: 1.0, rotation: totalRotation });
-        const appliedScale = Math.min(cfg.scale, cfg.maxDim / Math.max(unscaled.width, unscaled.height));
-        const viewport = page.getViewport({ scale: appliedScale, rotation: totalRotation });
+        const unscaled = page.getViewport({
+          scale: 1.0,
+          rotation: totalRotation,
+        });
+        const appliedScale = Math.min(
+          cfg.scale,
+          cfg.maxDim / Math.max(unscaled.width, unscaled.height),
+        );
+        const viewport = page.getViewport({
+          scale: appliedScale,
+          rotation: totalRotation,
+        });
 
         const canvas = document.createElement("canvas");
         canvas.width = viewport.width;
@@ -1121,30 +1294,38 @@ const Controller = {
         if (item.editSnapshot) {
           const img = new Image();
           img.src = item.editSnapshot;
-          await new Promise(r => img.onload = r);
+          await new Promise((r) => (img.onload = r));
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         }
 
-        const blob = await new Promise(res => canvas.toBlob(res, "image/jpeg", cfg.quality));
+        const blob = await new Promise((res) =>
+          canvas.toBlob(res, "image/jpeg", cfg.quality),
+        );
         zip.file(`page_${String(pageNumber).padStart(3, "0")}.jpg`, blob);
-        canvas.width = 0; canvas.height = 0;
+        canvas.width = 0;
+        canvas.height = 0;
       }
 
       UIService.showLoading("正在打包 ZIP...");
-      const zipContent = await zip.generateAsync({ type: "blob", compression: "STORE" }, (meta) => {
-        UIService.showLoading(`打包進度：${Math.floor(meta.percent)}%`);
-      });
+      const zipContent = await zip.generateAsync(
+        { type: "blob", compression: "STORE" },
+        (meta) => {
+          UIService.showLoading(`打包進度：${Math.floor(meta.percent)}%`);
+        },
+      );
 
-      PDFService.triggerDownload(zipContent, PDFService.getTargetFilename("zip"));
+      PDFService.triggerDownload(
+        zipContent,
+        PDFService.getTargetFilename("zip"),
+      );
       UIService.showToast("JPG 打包下載完成", "success");
     } catch (err) {
       UIService.showToast("轉檔失敗：" + err.message, "error");
     } finally {
       UIService.hideLoading();
     }
-  }
+  },
 };
-
 
 /**
  * ==========================================
@@ -1153,7 +1334,9 @@ const Controller = {
  */
 document.addEventListener("DOMContentLoaded", () => {
   const fileInput = document.getElementById("fileInput");
-  document.getElementById("emptyHero").addEventListener("click", () => fileInput.click());
+  document
+    .getElementById("emptyHero")
+    .addEventListener("click", () => fileInput.click());
   fileInput.addEventListener("change", (e) => {
     if (e.target.files?.length) Controller.handleFiles(e.target.files);
     fileInput.value = "";
@@ -1164,37 +1347,51 @@ document.addEventListener("DOMContentLoaded", () => {
   window.addEventListener("dragenter", (e) => {
     e.preventDefault();
     dragCounter++;
-    if (e.dataTransfer.types.includes("Files")) globalDropOverlay.style.display = "flex";
+    if (e.dataTransfer.types.includes("Files"))
+      globalDropOverlay.style.display = "flex";
   });
   window.addEventListener("dragleave", (e) => {
     e.preventDefault();
     dragCounter--;
-    if (dragCounter <= 0) { globalDropOverlay.style.display = "none"; dragCounter = 0; }
+    if (dragCounter <= 0) {
+      globalDropOverlay.style.display = "none";
+      dragCounter = 0;
+    }
   });
   window.addEventListener("dragover", (e) => e.preventDefault());
   window.addEventListener("drop", (e) => {
     e.preventDefault();
     dragCounter = 0;
     globalDropOverlay.style.display = "none";
-    if (e.dataTransfer.files?.length) Controller.handleFiles(e.dataTransfer.files);
+    if (e.dataTransfer.files?.length)
+      Controller.handleFiles(e.dataTransfer.files);
   });
 
   window.addEventListener("resize", UIComponent.updateFloatingBarPosition);
   const editorSectionEl = document.querySelector(".editor-section");
   if (window.ResizeObserver && editorSectionEl) {
-    new ResizeObserver(UIComponent.updateFloatingBarPosition).observe(editorSectionEl);
+    new ResizeObserver(UIComponent.updateFloatingBarPosition).observe(
+      editorSectionEl,
+    );
   }
 
-  document.getElementById("btnScrollTop").addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+  document
+    .getElementById("btnScrollTop")
+    .addEventListener("click", () =>
+      window.scrollTo({ top: 0, behavior: "smooth" }),
+    );
   document.getElementById("btnScrollBottom").addEventListener("click", () => {
     const addCard = UIComponent.getOrCreateAddCard();
-    if (addCard && addCard.parentElement) addCard.scrollIntoView({ behavior: "smooth", block: "center" });
-    else window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+    if (addCard && addCard.parentElement)
+      addCard.scrollIntoView({ behavior: "smooth", block: "center" });
+    else
+      window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
   });
 
   const qualityModeSelect = document.getElementById("jpgQualityMode");
   qualityModeSelect.addEventListener("change", (e) => {
-    document.getElementById("jpgQualityNote").textContent = QUALITY_NOTES[e.target.value] || "";
+    document.getElementById("jpgQualityNote").textContent =
+      QUALITY_NOTES[e.target.value] || "";
   });
 
   document.getElementById("btnClearAll").addEventListener("click", async () => {
@@ -1203,10 +1400,10 @@ document.addEventListener("DOMContentLoaded", () => {
       title: "確定清空所有頁面？",
       text: `將清除目前已加入的 ${AppState.pageItems.length} 個頁面。`,
       confirmText: "確認清空",
-      cancelText: "取消"
+      cancelText: "取消",
     });
     if (confirmed) {
-      AppState.pageItems.forEach(item => item.cardElement?.remove());
+      AppState.pageItems.forEach((item) => item.cardElement?.remove());
       AppState.pageItems = [];
       AppState.totalBytes = 0;
       UIComponent.syncStateAndBadges();
@@ -1214,8 +1411,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  document.getElementById("btnExportPdf").addEventListener("click", Controller.exportPdf);
-  document.getElementById("btnExportJpg").addEventListener("click", Controller.exportJpg);
+  document
+    .getElementById("btnExportPdf")
+    .addEventListener("click", Controller.exportPdf);
+  document
+    .getElementById("btnExportJpg")
+    .addEventListener("click", Controller.exportJpg);
 
   SingleEditorController.initEvents();
 });
