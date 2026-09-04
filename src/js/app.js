@@ -337,7 +337,7 @@ const UIComponent = {
 
 /**
  * ==========================================
- * 5. SINGLE PAGE EDITOR (常駐內嵌 10 色與自訂微調)
+ * 5. SINGLE PAGE EDITOR (單頁編輯與獨立簽名板控制器)
  * ==========================================
  */
 const COMMON_COLORS = [
@@ -358,7 +358,6 @@ const SingleEditorController = {
   ctx: null,
   bgCanvas: null,
   currentMode: "sign", // 'sign' or 'text'
-  isDrawing: false,
   nativeViewport: null,
   baseScale: 1.5,
   currentZoom: 1.0,
@@ -370,7 +369,14 @@ const SingleEditorController = {
   dragOffsetX: 0,
   dragOffsetY: 0,
   initialResizeState: null,
-  currentPath: [],
+  popstateHandler: null,
+
+  // 獨立簽名板內部變數
+  sigCanvas: null,
+  sigCtx: null,
+  isSigDrawing: false,
+  sigLastX: 0,
+  sigLastY: 0,
 
   async open(item) {
     AppState.currentEditingItem = item;
@@ -379,6 +385,17 @@ const SingleEditorController = {
     document.body.classList.add("modal-open");
     document.getElementById("singleEditorTitle").textContent =
       `編輯頁面：${item.fileName} (第 ${item.pageIndex + 1} 頁)`;
+
+    // 【問題三修正】：加入 History API 狀態，讓手機返回鍵／上一頁手勢能精準只關閉彈窗
+    history.pushState({ modalOpen: true }, "");
+    if (this.popstateHandler)
+      window.removeEventListener("popstate", this.popstateHandler);
+    this.popstateHandler = (e) => {
+      if (overlay.style.display === "flex") {
+        this.close(false); // 不重複呼叫 history.back
+      }
+    };
+    window.addEventListener("popstate", this.popstateHandler);
 
     this.canvas = document.getElementById("singleEditCanvas");
     this.ctx = this.canvas.getContext("2d");
@@ -415,7 +432,7 @@ const SingleEditorController = {
       this.redrawCanvas();
     } catch (err) {
       UIService.showToast("無法載入單頁檢視：" + err.message, "error");
-      this.close();
+      this.close(false);
     } finally {
       UIService.hideLoading();
     }
@@ -449,7 +466,6 @@ const SingleEditorController = {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.drawImage(this.bgCanvas, 0, 0);
 
-    // 繪製所有編輯物件
     this.tempEdits.forEach((edit, idx) => {
       if (edit.type === "sign" && edit.imgObj) {
         this.ctx.drawImage(
@@ -465,7 +481,6 @@ const SingleEditorController = {
         this.ctx.fillText(edit.text, edit.x, edit.y);
       }
 
-      // 如果被選中，繪製 8 點控制框與右上角「外側」X 刪除按鈕
       if (idx === this.selectedEditIndex) {
         const box = this.getObjectBoundingBox(edit);
         this.ctx.strokeStyle = "#2f81f7";
@@ -481,39 +496,24 @@ const SingleEditorController = {
         Object.entries(handles).forEach(([name, h]) => {
           if (name === "x") {
             this.ctx.fillStyle = "#f85149";
-            this.ctx.fillRect(h.x - 9, h.y - 9, 18, 18);
+            this.ctx.fillRect(h.x - 12, h.y - 12, 24, 24);
             this.ctx.strokeStyle = "#ffffff";
             this.ctx.lineWidth = 2;
-            this.ctx.strokeRect(h.x - 9, h.y - 9, 18, 18);
+            this.ctx.strokeRect(h.x - 12, h.y - 12, 24, 24);
             this.ctx.beginPath();
-            this.ctx.moveTo(h.x - 4, h.y - 4);
-            this.ctx.lineTo(h.x + 4, h.y + 4);
-            this.ctx.moveTo(h.x + 4, h.y - 4);
-            this.ctx.lineTo(h.x - 4, h.y + 4);
+            this.ctx.moveTo(h.x - 5, h.y - 5);
+            this.ctx.lineTo(h.x + 5, h.y + 5);
+            this.ctx.moveTo(h.x + 5, h.y - 5);
+            this.ctx.lineTo(h.x - 5, h.y + 5);
             this.ctx.stroke();
           } else {
             this.ctx.fillStyle = "#ffffff";
-            this.ctx.fillRect(h.x - 4, h.y - 4, 8, 8);
-            this.ctx.strokeRect(h.x - 4, h.y - 4, 8, 8);
+            this.ctx.fillRect(h.x - 6, h.y - 6, 12, 12);
+            this.ctx.strokeRect(h.x - 6, h.y - 6, 12, 12);
           }
         });
       }
     });
-
-    // 繪製即時手寫筆跡
-    if (this.isDrawing && this.currentPath.length > 1) {
-      const activeColor =
-        document.getElementById("signColorPicker")?.value || "#000000";
-      this.ctx.strokeStyle = activeColor;
-      this.ctx.lineWidth = 3;
-      this.ctx.lineCap = "round";
-      this.ctx.beginPath();
-      this.ctx.moveTo(this.currentPath[0].x, this.currentPath[0].y);
-      for (let i = 1; i < this.currentPath.length; i++) {
-        this.ctx.lineTo(this.currentPath[i].x, this.currentPath[i].y);
-      }
-      this.ctx.stroke();
-    }
   },
 
   getObjectBoundingBox(edit) {
@@ -535,22 +535,30 @@ const SingleEditorController = {
       nw: { x: box.x, y: box.y },
       ne: { x: box.x + box.w, y: box.y },
       se: { x: box.x + box.w, y: box.y + box.h },
-      sw: { x: box.x, y: box.x + box.w ? box.x : box.x, y: box.y + box.h }, // safety
       sw: { x: box.x, y: box.y + box.h },
       n: { x: box.x + box.w / 2, y: box.y },
       e: { x: box.x + box.w, y: box.y + box.h / 2 },
       s: { x: box.x + box.w / 2, y: box.y + box.h },
       w: { x: box.x, y: box.y + box.h / 2 },
-      x: { x: box.x + box.w + 14, y: box.y - 14 },
+      x: { x: box.x + box.w + 16, y: box.y - 16 },
     };
   },
 
-  close() {
+  close(shouldPop = true) {
     document.getElementById("singleEditorOverlay").style.display = "none";
     document.body.classList.remove("modal-open");
     AppState.currentEditingItem = null;
     this.tempEdits = [];
     this.bgCanvas = null;
+    if (this.popstateHandler) {
+      window.removeEventListener("popstate", this.popstateHandler);
+      this.popstateHandler = null;
+    }
+    if (shouldPop) {
+      try {
+        history.back();
+      } catch (e) {}
+    }
   },
 
   initColorPicker(gridId, colorInputId, hiddenPickerId) {
@@ -586,10 +594,108 @@ const SingleEditorController = {
     };
   },
 
+  initSignatureModal() {
+    this.sigCanvas = document.getElementById("sigModalCanvas");
+    this.sigCtx = this.sigCanvas.getContext("2d");
+
+    const clearSig = () => {
+      this.sigCtx.clearRect(0, 0, this.sigCanvas.width, this.sigCanvas.height);
+      this.sigCtx.fillStyle = "#ffffff";
+      this.sigCtx.fillRect(0, 0, this.sigCanvas.width, this.sigCanvas.height);
+    };
+
+    document.getElementById("btnOpenSignPad").onclick = () => {
+      document.getElementById("signatureModal").style.display = "flex";
+      clearSig();
+    };
+
+    document.getElementById("btnSigClear").onclick = clearSig;
+    document.getElementById("btnSigCancel").onclick = () => {
+      document.getElementById("signatureModal").style.display = "none";
+    };
+
+    const getSigPos = (e) => {
+      const rect = this.sigCanvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return {
+        x: (clientX - rect.left) * (this.sigCanvas.width / rect.width),
+        y: (clientY - rect.top) * (this.sigCanvas.height / rect.height),
+      };
+    };
+
+    const startSig = (e) => {
+      this.isSigDrawing = true;
+      const pos = getSigPos(e);
+      this.sigLastX = pos.x;
+      this.sigLastY = pos.y;
+      e.preventDefault();
+    };
+
+    const moveSig = (e) => {
+      if (!this.isSigDrawing) return;
+      const pos = getSigPos(e);
+      const activeColor =
+        document.getElementById("signColorPicker")?.value || "#000000";
+
+      this.sigCtx.strokeStyle = activeColor;
+      this.sigCtx.lineWidth = 4;
+      this.sigCtx.lineCap = "round";
+      this.sigCtx.lineJoin = "round";
+      this.sigCtx.beginPath();
+      this.sigCtx.moveTo(this.sigLastX, this.sigLastY);
+      this.sigCtx.lineTo(pos.x, pos.y);
+      this.sigCtx.stroke();
+
+      this.sigLastX = pos.x;
+      this.sigLastY = pos.y;
+      e.preventDefault();
+    };
+
+    const endSig = () => {
+      this.isSigDrawing = false;
+    };
+
+    this.sigCanvas.onmousedown = startSig;
+    window.addEventListener("mousemove", moveSig);
+    window.addEventListener("mouseup", endSig);
+
+    this.sigCanvas.ontouchstart = startSig;
+    window.addEventListener("touchmove", moveSig, { passive: false });
+    window.addEventListener("touchend", endSig);
+
+    document.getElementById("btnSigConfirm").onclick = () => {
+      const dataUrl = this.sigCanvas.toDataURL("image/png");
+      const imgObj = new Image();
+      imgObj.src = dataUrl;
+      imgObj.onload = () => {
+        // 預設將簽名放置在畫布中心偏上位置
+        const boxW = Math.min(220, this.canvas.width * 0.4);
+        const boxH = boxW * (this.sigCanvas.height / this.sigCanvas.width);
+        const boxX = (this.canvas.width - boxW) / 2;
+        const boxY = (this.canvas.height - boxH) / 2;
+
+        this.tempEdits.push({
+          type: "sign",
+          dataUrl,
+          imgObj,
+          x: boxX,
+          y: boxY,
+          width: boxW,
+          height: boxH,
+        });
+        this.selectedEditIndex = this.tempEdits.length - 1;
+        this.redrawCanvas();
+        UIService.showToast("簽章已加入，可自由縮放與移動", "success");
+        document.getElementById("signatureModal").style.display = "none";
+      };
+    };
+  },
+
   initEvents() {
     document.getElementById("btnCloseSingleEditor").onclick = () =>
-      this.close();
-    document.getElementById("btnCancelSingle").onclick = () => this.close();
+      this.close(true);
+    document.getElementById("btnCancelSingle").onclick = () => this.close(true);
 
     this.initColorPicker(
       "signPaletteGrid",
@@ -601,6 +707,7 @@ const SingleEditorController = {
       "textColorInput",
       "textColorPicker",
     );
+    this.initSignatureModal();
 
     document.getElementById("btnZoomIn").onclick = () =>
       this.setZoom(this.currentZoom + 0.25);
@@ -631,7 +738,7 @@ const SingleEditorController = {
 
     this.canvas = document.getElementById("singleEditCanvas");
 
-    // 統一的互動開始事件 (支援滑鼠與手機觸控)
+    // 【問題二修正】：將互動與移動邏輯提升至 window 全域監聽，確保在手機邊緣調整大小或拖曳不會中斷
     const handleStart = (clientX, clientY) => {
       const rect = this.canvas.getBoundingClientRect();
       const scaleX = this.canvas.width / rect.width;
@@ -645,7 +752,7 @@ const SingleEditorController = {
         );
         const handles = this.getHandles(box);
         for (const [hName, hCoord] of Object.entries(handles)) {
-          const hitRadius = hName === "x" ? 20 : 12; // 手機觸控範圍稍微放大
+          const hitRadius = hName === "x" ? 24 : 16; // 放大手機觸控容錯範圍
           if (
             Math.abs(x - hCoord.x) <= hitRadius &&
             Math.abs(y - hCoord.y) <= hitRadius
@@ -703,6 +810,7 @@ const SingleEditorController = {
         return true;
       }
 
+      // 文字模式：點擊空白處直接加入文字
       if (this.currentMode === "text") {
         const textInput = document.getElementById("customTextInput");
         const textVal = textInput.value.trim();
@@ -730,16 +838,11 @@ const SingleEditorController = {
         this.selectedEditIndex = this.tempEdits.length - 1;
         this.redrawCanvas();
         UIService.showToast("已加入文字，可拖曳或縮放", "success");
-      } else if (this.currentMode === "sign") {
-        this.selectedEditIndex = null;
-        this.isDrawing = true;
-        this.currentPath = [{ x, y }];
       }
       this.redrawCanvas();
       return true;
     };
 
-    // 統一的互動移動事件
     const handleMove = (clientX, clientY) => {
       const rect = this.canvas.getBoundingClientRect();
       const scaleX = this.canvas.width / rect.width;
@@ -800,13 +903,8 @@ const SingleEditorController = {
         this.redrawCanvas();
         return;
       }
-
-      if (!this.isDrawing || this.currentMode !== "sign") return;
-      this.currentPath.push({ x, y });
-      this.redrawCanvas();
     };
 
-    // 統一的互動結束事件
     const handleEnd = () => {
       if (this.isResizingObject) {
         this.isResizingObject = false;
@@ -817,101 +915,35 @@ const SingleEditorController = {
         this.isDraggingObject = false;
         return;
       }
-
-      if (!this.isDrawing) return;
-      this.isDrawing = false;
-
-      if (this.currentPath.length > 5) {
-        let minX = Infinity,
-          minY = Infinity,
-          maxX = -Infinity,
-          maxY = -Infinity;
-        this.currentPath.forEach((p) => {
-          if (p.x < minX) minX = p.x;
-          if (p.y < minY) minY = p.y;
-          if (p.x > maxX) maxX = p.x;
-          if (p.y > maxY) maxY = p.y;
-        });
-
-        const padding = 10;
-        const boxX = Math.max(0, minX - padding);
-        const boxY = Math.max(0, minY - padding);
-        const boxW = Math.min(
-          this.canvas.width - boxX,
-          maxX - minX + padding * 2,
-        );
-        const boxH = Math.min(
-          this.canvas.height - boxY,
-          maxY - minY + padding * 2,
-        );
-
-        const padCanvas = document.createElement("canvas");
-        padCanvas.width = boxW;
-        padCanvas.height = boxH;
-        const pCtx = padCanvas.getContext("2d");
-        pCtx.strokeStyle =
-          document.getElementById("signColorPicker")?.value || "#000000";
-        pCtx.lineWidth = 3;
-        pCtx.lineCap = "round";
-
-        pCtx.beginPath();
-        pCtx.moveTo(this.currentPath[0].x - boxX, this.currentPath[0].y - boxY);
-        for (let i = 1; i < this.currentPath.length; i++) {
-          pCtx.lineTo(
-            this.currentPath[i].x - boxX,
-            this.currentPath[i].y - boxY,
-          );
-        }
-        pCtx.stroke();
-
-        const dataUrl = padCanvas.toDataURL("image/png");
-        const imgObj = new Image();
-        imgObj.src = dataUrl;
-
-        imgObj.onload = () => {
-          this.tempEdits.push({
-            type: "sign",
-            dataUrl,
-            imgObj,
-            x: boxX,
-            y: boxY,
-            width: boxW,
-            height: boxH,
-          });
-          this.selectedEditIndex = this.tempEdits.length - 1;
-          this.redrawCanvas();
-          UIService.showToast("已自動裁切簽章，可自由縮放與移動", "success");
-        };
-      }
-      this.currentPath = [];
     };
 
-    // 綁定滑鼠事件
     this.canvas.addEventListener("mousedown", (e) =>
       handleStart(e.clientX, e.clientY),
     );
-    this.canvas.addEventListener("mousemove", (e) =>
+    window.addEventListener("mousemove", (e) =>
       handleMove(e.clientX, e.clientY),
     );
     window.addEventListener("mouseup", () => handleEnd());
 
-    // 綁定手機觸控事件 (Touch Events)
     this.canvas.addEventListener(
       "touchstart",
       (e) => {
         if (e.touches.length === 1) {
           const touch = e.touches[0];
           handleStart(touch.clientX, touch.clientY);
-          e.preventDefault(); // 防止手機捲動頁面
+          e.preventDefault();
         }
       },
       { passive: false },
     );
 
-    this.canvas.addEventListener(
+    window.addEventListener(
       "touchmove",
       (e) => {
-        if (e.touches.length === 1) {
+        if (
+          e.touches.length === 1 &&
+          (this.isResizingObject || this.isDraggingObject)
+        ) {
           const touch = e.touches[0];
           handleMove(touch.clientX, touch.clientY);
           e.preventDefault();
@@ -944,7 +976,7 @@ const SingleEditorController = {
       PDFService.renderPagePreview(AppState.currentEditingItem);
       UIComponent.syncStateAndBadges();
       UIService.showToast("已儲存該頁編輯內容", "success");
-      this.close();
+      this.close(true);
     };
   },
 };
@@ -965,6 +997,10 @@ const Controller = {
           ".card-index-input, .btn-delete-x, .card-actions, button, input",
         preventOnFilter: false,
         animation: 180,
+        // 【問題四修正】：增加手機長按延遲，讓使用者在手機上可以順暢上下滾動頁面
+        delay: 200,
+        delayOnTouchOnly: true,
+        touchStartThreshold: 5,
         ghostClass: "sortable-ghost",
         chosenClass: "sortable-chosen",
         scroll: true,
@@ -1102,13 +1138,12 @@ const Controller = {
 
   async handleFiles(files) {
     UIService.showLoading("載入頁面中...");
-    // 確保將 FileList 轉為標準陣列，全面相容所有桌面與手機瀏覽器
     const fileArray = Array.from(files);
     const newItems = [];
     let loadedCount = 0;
 
+    // 【問題一修正】：使用標準 for...of 非同步迴圈支援手機與電腦批次多檔上傳
     for (const file of fileArray) {
-      // 放寬檢查：只要副檔名是 .pdf 即可（避免手機瀏覽器未帶入正確的 MIME type）
       if (!file.name.toLowerCase().endsWith(".pdf")) continue;
       try {
         AppState.totalBytes += file.size;

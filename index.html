@@ -30,7 +30,7 @@
                     <line x1="9" y1="15" x2="15" y2="15"></line>
                 </svg>
                 <div class="title">點擊或拖曳 PDF 檔案至此處</div>
-                <div class="subtitle">支援單一或多檔案批次載入</div>
+                <div class="subtitle">支援單一或多檔案批次載入（可多選）</div>
             </div>
         </div>
 
@@ -39,7 +39,7 @@
             <section class="editor-section">
                 <div class="section-header">
                     <div class="section-title">頁面清單</div>
-                    <div class="section-desc">可自由拖曳換位，或點擊預覽圖進入「單頁大面檢視與編輯/簽章」</div>
+                    <div class="section-desc">長按可拖曳換位（手機友善），或點擊預覽圖進入單頁編輯</div>
                 </div>
                 <div class="page-grid" id="pageGrid"></div>
 
@@ -109,7 +109,7 @@
                             </div>
                         </div>
 
-                        <!-- 簽章控制項 (常駐內嵌 10 色與自訂微調並排) -->
+                        <!-- 簽章控制項 -->
                         <div id="signToolOptions" class="tool-options-group">
                             <label style="font-size:0.78rem; color:var(--text-muted);">顏色：</label>
                             <div class="inline-palette-container">
@@ -120,13 +120,15 @@
                                 </div>
                             </div>
                             <input type="hidden" id="signColorPicker" value="#000000" />
+                            <button type="button" class="btn-action secondary" id="btnOpenSignPad"
+                                style="padding: 6px 12px; font-size: 0.78rem; background: var(--accent); color: #fff; border: none;">開啟簽名板</button>
                             <button type="button" class="btn-action secondary" id="btnClearPad"
-                                style="padding: 5px 10px; font-size: 0.78rem;">清除全部簽名</button>
+                                style="padding: 5px 10px; font-size: 0.78rem;">清除所有簽名</button>
                         </div>
 
-                        <!-- 文字控制項 (常駐內嵌 10 色與自訂微調並排) -->
+                        <!-- 文字控制項 -->
                         <div id="textToolOptions" class="tool-options-group" style="display: none;">
-                            <input type="text" id="customTextInput" class="form-input" placeholder="請先在此輸入要加入的文字..."
+                            <input type="text" id="customTextInput" class="form-input" placeholder="請先輸入文字，再點擊頁面放置..."
                                 style="width: 220px;" />
                             <label style="font-size:0.78rem; color:var(--text-muted);">顏色：</label>
                             <div class="inline-palette-container">
@@ -154,11 +156,30 @@
                 </div>
             </div>
             <div class="single-editor-footer">
-                <div class="footer-hint">提示：文字模式下輸入文字後直接在頁面點擊加入；選取物件可透過 8 點縮放，點擊右上角外側 "X" 移除。</div>
+                <div class="footer-hint">提示：點擊頁面空白處放置文字；點擊物件可進行 8 點縮放、拖曳或點擊右上角 "X" 刪除。</div>
                 <div class="footer-actions">
                     <button type="button" class="btn-modal cancel" id="btnCancelSingle">取消變更</button>
                     <button type="button" class="btn-modal confirm-primary" id="btnSaveSingle">儲存此頁修改</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 手機與桌面專用：獨立手寫簽名板 Modal -->
+    <div id="signatureModal" class="modal-overlay" style="z-index: 10005;">
+        <div class="confirm-modal" style="max-width: 460px; width: 92%;">
+            <div class="modal-title">手寫電子簽章</div>
+            <div class="modal-text">請在下方區塊簽名，完成後點擊確認：</div>
+            <div
+                style="background: #ffffff; border-radius: var(--radius-sm); overflow: hidden; margin-bottom: 16px; border: 1px solid var(--border-subtle); touch-action: none;">
+                <canvas id="sigModalCanvas" width="400" height="220"
+                    style="width: 100%; height: 200px; display: block; cursor: crosshair;"></canvas>
+            </div>
+            <div class="modal-actions" style="display: flex; gap: 8px; justify-content: space-between;">
+                <button type="button" class="btn-modal cancel" id="btnSigClear" style="flex: 1;">清除重寫</button>
+                <button type="button" class="btn-modal cancel" id="btnSigCancel" style="flex: 1;">取消</button>
+                <button type="button" class="btn-modal confirm-primary" id="btnSigConfirm"
+                    style="flex: 1;">確認並加入</button>
             </div>
         </div>
     </div>

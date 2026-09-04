@@ -151,6 +151,7 @@ header h1 {
   position: relative;
   cursor: grab;
   user-select: none;
+  touch-action: pan-y; /* 允許手機垂直捲動 */
   transition: border-color 0.15s, opacity 0.15s;
   z-index: 1;
 }
@@ -423,7 +424,7 @@ header h1 {
   gap: 8px;
 }
 
-/* 常駐內嵌色票容器 (10色網格與自訂微調並排) */
+/* 常駐內嵌色票容器 */
 .inline-palette-container {
   display: flex;
   align-items: center;
